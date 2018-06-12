@@ -22,6 +22,11 @@
 
             $('#node-input-plccoms').on('change', function(){                
                 $('#node-input-pubvar').empty();
+                $('#node-input-pubvar').append($('<option></option>')
+                                                    .attr('value', '')
+                                                    .attr('hidden', 'hidden')
+                                                    .text('Select variable'));
+                                                    
                 var plcComSConfigNode = RED.nodes.node(this.value);
                 if(plcComSConfigNode){
                     $('#node-input-pubvar').prop('disabled', false);
@@ -36,10 +41,16 @@
 
             $('#node-config-listvars-button').click(function(){
                 $('#node-input-pubvar').empty();
-
+                $('#node-input-pubvar').append($('<option></option>')
+                                                    .attr('value', '')
+                                                    .attr('hidden', 'hidden')
+                                                    .text('Select variable')); 
+                console.log('Refreshing...');    
                 var plcComSConfigNode = RED.nodes.node($('#node-input-plccoms').val());
                 if(plcComSConfigNode){
+                    console.log('PLCComS is set');
                     $.getJSON('pubvarlist', {host : plcComSConfigNode.host, port : plcComSConfigNode.port}, function(vars) {
+                        console.log(JSON.stringify(vars));
                         $.each(vars, function(index, val) {
                             $('#node-input-pubvar').append($('<option></option>')
                                                     .attr('value', val)
@@ -48,6 +59,7 @@
                         $('#node-input-pubvar').val(node.pubvar);
                     });
                 }
+                else console.log('PlcComS not specified')
             });
 
             $('#node-config-listvars-button').click();
