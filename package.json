@@ -1,0 +1,16 @@
+{
+    "name"         : "node-red-contrib-foxtrotnode",
+    "version"      : "0.0.1",
+    "description"  : "Foxtrot node for node-red",
+    "dependencies": {
+        "telnet-client": "0.15.5"
+    },
+    "keywords": [ "node-red" ],
+    "node-red"     : {
+        "nodes": {
+            "foxtrot": "foxtrot.js",
+            "plccoms-configurator" : "plccoms-configurator.js"
+        }
+    },
+    "author": "Jan Martinec"
+}

@@ -1,0 +1,72 @@
+<script type="text/javascript">
+    RED.nodes.registerType('foxtrot',{
+        category: 'tecomat',
+        color: '#a6bbcf',
+        defaults:{
+            plccoms: {value:"", type:"plccoms-configurator", required:true},
+            pubvar: {value:"", required:true}
+        },
+        inputs:0,
+        outputs:1,
+        //icon: "TECO-ICO-WIN-2.ico",
+        label: function() {
+            return this.pubvar || "Foxtrot";
+        },
+        oneditprepare: function() {
+
+            var node = this;
+            // $('#node-input-pubvar').append($('<option></option>')
+            //                                         .attr('selected', 'selected')
+            //                                         .attr('value', node.pubvar)
+            //                                         .text(node.pubvar));
+
+            $('#node-input-plccoms').on('change', function(){                
+                $('#node-input-pubvar').empty();
+                var plcComSConfigNode = RED.nodes.node(this.value);
+                if(plcComSConfigNode){
+                    $('#node-input-pubvar').prop('disabled', false);
+                    $('#node-config-listvars-button').removeAttr('disabled');
+                }
+                else{
+                    $('#node-input-pubvar').prop('disabled', true);    
+                    $('#node-config-listvars-button').attr('disabled', 'disabled');
+                }
+
+            });
+
+            $('#node-config-listvars-button').click(function(){
+                $('#node-input-pubvar').empty();
+
+                var plcComSConfigNode = RED.nodes.node($('#node-input-plccoms').val());
+                if(plcComSConfigNode){
+                    $.getJSON('pubvarlist', {host : plcComSConfigNode.host, port : plcComSConfigNode.port}, function(vars) {
+                        $.each(vars, function(index, val) {
+                            $('#node-input-pubvar').append($('<option></option>')
+                                                    .attr('value', val)
+                                                    .text(val));            
+                        });
+                        $('#node-input-pubvar').val(node.pubvar);
+                    });
+                }
+            });
+
+            $('#node-config-listvars-button').click();
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="foxtrot">
+    <div class="form-row">
+        <label for="node-input-plccoms"><i class="icon-globe"></i> PlcComS</label>
+        <input type="text" id="node-input-plccoms" placeholder="Select PlcComS server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-pubvar"><i class="icon-tag"></i> Variables</label>
+        <select id="node-input-pubvar"></select>
+        <a id="node-config-listvars-button" class="btn"><i class="icon-refresh"></i></a>
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="foxtrot">
+    <p>PLC Tecomat Foxtrot</p>
+</script>
