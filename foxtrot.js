@@ -48,11 +48,14 @@ module.exports = function(RED) {
                         if(varlist == null) varlist = [];
                         var v = method[1].split(',')[0];
                         if(v !== '' && varlist.indexOf(v) < 0) varlist.push(v);
-                        break;  
+                        break; 
+                    case 'ERROR': 
+                        if(varlist == null) varlist = [];    
                 }
             });
 
             if(varlist){
+                console.log('PlcComS loaded varlist: ' + varlist)
                 res.json(varlist);
                 connection.destroy();
             }
