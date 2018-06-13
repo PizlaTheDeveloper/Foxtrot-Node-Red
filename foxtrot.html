@@ -1,13 +1,97 @@
 <script type="text/javascript">
-    RED.nodes.registerType('foxtrot',{
+    RED.nodes.registerType('plccoms',{
+        category: 'config',
+        defaults: {
+            host: {value:"localhost", required:true},
+            port: {value:5010, required:true, validate:RED.validators.number()},
+            termination: {value:"%0D%0A"}
+        },
+        label: function() {
+            return this.host + ":" + this.port;
+        },
+    });
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('foxtrot-input',{
         category: 'tecomat',
         color: '#a6bbcf',
         defaults:{
-            plccoms: {value:"", type:"plccoms-configurator", required:true},
+            plccoms: {value:"", type:"plccoms", required:true},
             pubvar: {value:"", required:true}
         },
         inputs:0,
         outputs:1,
+        icon: "foxtrot-icon.png",
+        label: function() {
+            return this.pubvar || "Foxtrot";
+        },
+        oneditprepare: function() {
+
+            var node = this;
+
+            $('#node-input-plccoms').on('change', function(){                
+                $('#node-input-pubvar').empty().append($('<option></option>')
+                                                    .attr('value', '')
+                                                    .attr('hidden', 'hidden')
+                                                    .text('Select variable...'));
+
+                var plcComSConfigNode = RED.nodes.node(this.value);
+                if(plcComSConfigNode){
+                    $('#node-input-pubvar').prop('disabled', false);
+                    $('#node-config-listvars-button').removeAttr('disabled');
+                }
+                else{
+                    $('#node-input-pubvar').prop('disabled', true);    
+                    $('#node-config-listvars-button').attr('disabled', 'disabled');
+                }
+
+            });
+
+            $('#node-config-listvars-button').click(function(){
+                $('#node-input-pubvar').empty().append($('<option></option>')
+                                                    .attr('value', '')
+                                                    .attr('hidden', 'hidden')
+                                                    .text('Select variable...')); 
+   
+                var plcComSConfigNode = RED.nodes.node($('#node-input-plccoms').val());
+                if(plcComSConfigNode){
+                    console.log('PlcComS specified')
+                    $.getJSON('pubvarlist', {host : plcComSConfigNode.host, port : plcComSConfigNode.port, termination : plcComSConfigNode.termination}, function(vars) {
+                        if(!$.isArray(vars) ||  !vars.length) {
+                            $('#node-input-pubvar').empty().append($('<option></option>')
+                                                    .attr('value', '')
+                                                    .attr('hidden', 'hidden')
+                                                    .text('No variable'));        
+                        }
+                        else{
+                            $.each(vars, function(index, val) {
+                                $('#node-input-pubvar').append($('<option></option>')
+                                                        .attr('value', val)
+                                                        .text(val));            
+                            });
+                            $('#node-input-pubvar').val(node.pubvar);
+                        }
+                    });
+                }
+                else console.log('PlcComS not specified')
+            });
+
+            $('#node-config-listvars-button').click();
+        }
+    });
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('foxtrot-output',{
+        category: 'tecomat',
+        color: '#a6bbcf',
+        defaults:{
+            plccoms: {value:"", type:"plccoms", required:true},
+            pubvar: {value:"", required:true}
+        },
+        inputs:1,
+        outputs:0,
         icon: "foxtrot-icon.png",
         label: function() {
             return this.pubvar || "Foxtrot";
@@ -67,7 +151,22 @@
     });
 </script>
 
-<script type="text/x-red" data-template-name="foxtrot">
+<script type="text/x-red" data-template-name="plccoms">
+    <div class="form-row">
+        <label for="node-config-input-host"><i class="icon-bookmark"></i> Host</label>
+        <input type="text" id="node-config-input-host">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-port"><i class="icon-bookmark"></i> Port</label>
+        <input type="text" id="node-config-input-port">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-termination"><i class="fa fa-code"></i> Termination</label>
+        <input type="text" id="node-config-input-termination">
+    </div>
+</script>
+
+<script type="text/x-red" data-template-name="foxtrot-input">
     <div class="form-row">
         <label for="node-input-plccoms"><i class="icon-globe"></i> PlcComS</label>
         <input type="text" id="node-input-plccoms" placeholder="Select PlcComS server">
@@ -79,6 +178,22 @@
     </div>
 </script>
 
-<script type="text/x-red" data-help-name="foxtrot">
-    <p>PLC Tecomat Foxtrot</p>
+<script type="text/x-red" data-template-name="foxtrot-output">
+    <div class="form-row">
+        <label for="node-input-plccoms"><i class="icon-globe"></i> PlcComS</label>
+        <input type="text" id="node-input-plccoms" placeholder="Select PlcComS server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-pubvar"><i class="icon-tag"></i> Variables</label>
+        <select id="node-input-pubvar"></select>
+        <a id="node-config-listvars-button" class="btn"><i class="icon-refresh"></i></a>
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="foxtrot-input">
+    <p>Tecomat Foxtrot input node</p>
+</script>
+
+<script type="text/x-red" data-help-name="foxtrot-output">
+    <p>Tecomat Foxtrot output node</p>
 </script>
