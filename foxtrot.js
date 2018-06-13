@@ -2,20 +2,19 @@ module.exports = function(RED) {
 
     function FoxtrotNode(config) {
         RED.nodes.createNode(this,config);
+        
+        this.pubvar = config.pubvar;
+        this.plccoms = RED.nodes.getNode(config.plccoms);
+
         var node = this;
 
-        // this.plccoms = RED.nodes.node(config.plccoms);
-
-        // this.plccoms.on('Connected', function (data) {            
-        //     console.log('jupiiiiiii');
-        // })
-
-        // if(this.plccoms){
-
-        // }
-        // else{
-
-        // }
+        if(this.plccoms){
+            this.status({fill:"red", shape:"ring", text:"node-red:common.status.disconnected"});
+            if(this.pubvar){                
+                this.plccoms.registerFoxtrotNode(node);
+            }
+        }
+        
     }
     RED.nodes.registerType("foxtrot", FoxtrotNode);
 
