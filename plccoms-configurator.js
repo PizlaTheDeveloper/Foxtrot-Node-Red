@@ -6,24 +6,27 @@ module.exports = function(RED) {
 
         this.host = n.host;
         this.port = n.port;
+        this.term = decodeURI(n.termination);
         this.connected = false;
         this.connecting = false;
         this.foxtrotNodes = {};
 
         var node = this;
 
-        var enableVar = function(pubvar){
+        var enableFoxtrotNode = function(foxtrotNode){
             if(node.connected){
-                node.connection.write('EN:' + pubvar + '\r\n');
+                foxtrotNode.status({fill:"green", shape:"ring", text:"node-red:common.status.connected"});
+                node.connection.write('EN:' + foxtrotNode.pubvar + node.term);
             }
         }
 
         this.registerFoxtrotNode = function(foxtrotNode){
+            foxtrotNode.status({fill:"red", shape:"ring", text:"node-red:common.status.disconnected"});
             node.foxtrotNodes[foxtrotNode.pubvar] = foxtrotNode;
             if(Object.keys(node.foxtrotNodes).length === 1){
                 node.connect();
             } 
-            enableVar(foxtrotNode.pubvar);        
+            enableFoxtrotNode(foxtrotNode);        
         }
 
         this.deregisterFoxtrotNode = function(foxtrotNode){
@@ -43,8 +46,7 @@ module.exports = function(RED) {
                     node.connecting = false;
                     node.connected = true;
                     Object.keys(node.foxtrotNodes).forEach(function(pubvar) {
-                        node.foxtrotNodes[pubvar].status({fill:"green", shape:"ring", text:"node-red:common.status.connected"});
-                        enableVar(pubvar);
+                        enableFoxtrotNode(node.foxtrotNodes[pubvar]);
                     });
                 });
 
@@ -52,17 +54,39 @@ module.exports = function(RED) {
                     var responses = data.toString().split('\r\n');
                     responses = responses.filter(function(value){ return value !== ''; }); // delete empty lines
                     responses.forEach(element => {
-                        var method = element.split(':', 2);        
-                        switch(method[0]){
+                        var [method, params] = element.split(/:(.+)/);        
+                        switch(method){
                             case 'DIFF':
-                                var varVal = method[1].split(',');
-                                if(node.foxtrotNodes.hasOwnProperty(varVal[0])){
-                                    node.foxtrotNodes[varVal[0]].send({payload:varVal[1]});
+                                var [pubvar, value] = params.split(',');
+                                if(node.foxtrotNodes.hasOwnProperty(pubvar)){
+                                    node.foxtrotNodes[pubvar].send({payload:value});
                                 }
                                 break;
                             case 'ERROR':
-
+                                console.log('PlcComS: ' + element);
+                                var [code, text] = params.split(/ (.+)/);
+                                switch(Number(code)){
+                                    case 33: // Unknown register name
+                                        var pubvar = text.match(/'([^']+)'/)[1];
+                                        if(pubvar){
+                                            if(node.foxtrotNodes.hasOwnProperty(pubvar)){
+                                                node.foxtrotNodes[pubvar].status({fill:"grey", shape:"ring", text:"invalid"});   
+                                            }
+                                        }
+                                        break;
+                                    
+                                }
                                 break; 
+                            case 'WARNING':
+                                console.log('PlcComS: ' + element);
+                                [code, text] = params.split(/ (.+)/);
+                                switch(Number(code)){
+                                    case 250: // changed public file
+                                        Object.keys(node.foxtrotNodes).forEach(function(pubvar) {                                            
+                                            enableFoxtrotNode(node.foxtrotNodes[pubvar]);
+                                        });
+                                }
+                                break;
                         }
                     });
                 });

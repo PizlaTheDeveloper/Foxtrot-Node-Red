@@ -39,12 +39,10 @@
                                                     .attr('value', '')
                                                     .attr('hidden', 'hidden')
                                                     .text('Select variable...')); 
-                console.log('Refreshing...');    
+   
                 var plcComSConfigNode = RED.nodes.node($('#node-input-plccoms').val());
                 if(plcComSConfigNode){
-                    console.log('PLCComS is set');
-                    $.getJSON('pubvarlist', {host : plcComSConfigNode.host, port : plcComSConfigNode.port}, function(vars) {
-                        console.log(JSON.stringify(vars));
+                    $.getJSON('pubvarlist', {host : plcComSConfigNode.host, port : plcComSConfigNode.port, termination : plcComSConfigNode.termination}, function(vars) {
                         if(!$.isArray(vars) ||  !vars.length) {
                             $('#node-input-pubvar').empty().append($('<option></option>')
                                                     .attr('value', '')

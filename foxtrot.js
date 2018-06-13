@@ -8,10 +8,9 @@ module.exports = function(RED) {
 
         var node = this;
 
-        if(this.plccoms){
-            this.status({fill:"red", shape:"ring", text:"node-red:common.status.disconnected"});
+        if(this.plccoms){            
             if(this.pubvar){                
-                this.plccoms.registerFoxtrotNode(node);
+                this.plccoms.registerFoxtrotNode(this);
             }
         }
         
@@ -20,67 +19,34 @@ module.exports = function(RED) {
 
     RED.httpAdmin.get("/pubvarlist", RED.auth.needsPermission('foxtrot.read'), function(req,res) {
 
-        console.log('GET /pubvarlist')
-
         var net = require('net')
         var connection = net.createConnection(req.query.port, req.query.host);
 
+        var varlist = [];
+        var done = function(){
+            res.json(varlist);
+            connection.destroy();   
+        }
+
         connection.on("connect", function(socket){
-            console.log('PlcComS successfully connected');  
-            connection.write('LIST:\r\n');
+            connection.write('LIST:' + decodeURI(req.query.termination));
         });
         
-        connection.on("error", function(err) {
-            console.log('PlcComS connection error');   
-            res.json([]);
-        });
+        connection.on("error", done);
 
         connection.on("data", function(data) {
-            // if(data.toString().split(':',1)[0]
-            var varlist = null;
             var responses = data.toString().split('\r\n');
             responses = responses.filter(function(value){ return value !== ''; }); // delete empty lines
             responses.forEach(element => {
-                var method = element.split(':', 2);        
-                switch(method[0]){  
+                [method, params] = element.split(/:(.+)/);         
+                switch(method){  
                     case 'LIST':
-                        if(varlist == null) varlist = [];
-                        var v = method[1].split(',')[0];
-                        if(v !== '' && varlist.indexOf(v) < 0) varlist.push(v);
-                        break; 
-                    case 'ERROR': 
-                        if(varlist == null) varlist = [];    
+                        var v = params.split(',')[0];
+                        if(v === '') done();
+                        else if(varlist.indexOf(v) < 0) varlist.push(v);
+                        break;  
                 }
             });
-
-            if(varlist){
-                console.log('PlcComS loaded varlist: ' + varlist)
-                res.json(varlist);
-                connection.destroy();
-            }
-        });
-
-        
-        // connection.onData = function(data){
-        //     var responses = data.toString().split('\r\n');
-        //     responses = responses.filter(function(value){
-        //         return value !== '';
-        //     });
-        //     responses.forEach(element => {
-        //         var method = element.split(':', 2);        
-        //         switch(method[0]){
-        //             case 'LIST':
-        //                 var v = method[1].split(',')[0];
-        //                 if(v !== '' && node.varlist.indexOf(v) < 0) node.varlist.push(v);
-        //                 break;
-        //             default:
-        //                 console.log('Foxtrot: ' + data.toString());
-        //         }
-        //     });
-        //     console.log(node.varlist.toString());                
-        // }
-
-        // // node.connection.on("connect", node.onConnect);
-        // // node.connection.on("data", node.onData);    
+        });   
     }); 
 }

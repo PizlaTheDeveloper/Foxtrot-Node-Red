@@ -4,13 +4,11 @@
         defaults: {
             host: {value:"localhost", required:true},
             port: {value:5010, required:true, validate:RED.validators.number()},
+            termination: {value:"%0D%0A"}
         },
         label: function() {
             return this.host + ":" + this.port;
         },
-        oneditprepare: function() {
-            console.log('Fuuuuuuj');
-        }
     });
 </script>
 
@@ -22,5 +20,9 @@
     <div class="form-row">
         <label for="node-config-input-port"><i class="icon-bookmark"></i> Port</label>
         <input type="text" id="node-config-input-port">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-termination"><i class="fa fa-code"></i> Command termination</label>
+        <input type="text" id="node-config-input-termination">
     </div>
 </script>
