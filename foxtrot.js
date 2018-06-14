@@ -22,7 +22,7 @@ module.exports = function(RED) {
         }
 
         this.registerFoxtrotNode = function(foxtrotNode){
-            foxtrotNode.status({fill:"red", shape:"ring", text:"node-red:common.status.disconnected"});
+            foxtrotNode.status({fill:"yellow", shape:"ring", text:"node-red:common.status.connecting"});
             node.foxtrotNodes[foxtrotNode.pubvar] = foxtrotNode;
             if(Object.keys(node.foxtrotNodes).length === 1){
                 node.connect();
@@ -92,16 +92,42 @@ module.exports = function(RED) {
                     });
                 });
 
+                node.connection.on('close', function(){
+                    node.connecting = false;
+                    node.connected = false;
+                    Object.keys(node.foxtrotNodes).forEach(function(pubvar) {
+                        node.foxtrotNodes[pubvar].status({fill:"red", shape:"ring", text:"node-red:common.status.disconnected"});
+                    });
+                    setTimeout(function(){
+                        Object.keys(node.foxtrotNodes).forEach(function(pubvar) {
+                            node.foxtrotNodes[pubvar].status({fill:"yellow", shape:"ring", text:"node-red:common.status.connecting"});
+                            node.connect();
+                        });     
+                    }, 4000);
+                });
+
                 node.connection.on('error', function(error){
                     node.connecting = false;
                     node.connected = false;
                     Object.keys(node.foxtrotNodes).forEach(function(pubvar) {
-                        node.foxtrotNodes[pubvar].status({fill:"green", shape:"ring", text:"node-red:common.status.error"});
+                        node.foxtrotNodes[pubvar].status({fill:"blue", shape:"ring", text:"node-red:common.status.error"});
                     });
                 });
             }
         }
-        
+
+        this.on('close', function(done){
+            if(this.connected){
+                this.connection.once('close', function(){
+                    done();
+                });
+                this.connection.destroy();
+            }    
+            else{
+                if(this.connecting) this.connection.destroy();
+                done();
+            }
+        });        
     }
     RED.nodes.registerType("plccoms", PlcComSConfigNode);
 
