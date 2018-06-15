@@ -22,6 +22,13 @@ module.exports = function(RED) {
             }
         }
 
+        var disableFoxtrotNode = function(foxtrotNode){
+            if(node.connected){
+                foxtrotNode.status({fill:"red", shape:"ring", text:"node-red:common.status.disconnected"});
+                node.connection.write('DI:' + foxtrotNode.pubvar + node.term);
+            }
+        }
+
         this.registerFoxtrotNode = function(foxtrotNode){
             foxtrotNode.status({fill:"yellow", shape:"ring", text:"node-red:common.status.connecting"});
             node.foxtrotNodes[foxtrotNode.pubvar] = foxtrotNode;
@@ -48,7 +55,10 @@ module.exports = function(RED) {
                     done();    
                 }
             }
-            done();
+            else{ 
+                disableFoxtrotNode();
+                done();
+            }
         }
 
         this.connect = function(){
@@ -112,12 +122,14 @@ module.exports = function(RED) {
                     Object.keys(node.foxtrotNodes).forEach(function(pubvar) {
                         node.foxtrotNodes[pubvar].status({fill:"red", shape:"ring", text:"node-red:common.status.disconnected"});
                     });
-                    setTimeout(function(){
-                        Object.keys(node.foxtrotNodes).forEach(function(pubvar) {
-                            node.foxtrotNodes[pubvar].status({fill:"yellow", shape:"ring", text:"node-red:common.status.connecting"});
-                            node.connect();
-                        });     
-                    }, 4000);
+                    if(!node.closing){
+                        setTimeout(function(){
+                            Object.keys(node.foxtrotNodes).forEach(function(pubvar) {
+                                node.foxtrotNodes[pubvar].status({fill:"yellow", shape:"ring", text:"node-red:common.status.connecting"});                            
+                            });    
+                            node.connect(); 
+                        }, 4000);
+                    }
                 });
 
                 node.connection.on('error', function(error){
@@ -131,6 +143,7 @@ module.exports = function(RED) {
         }
 
         this.on('close', function(done){
+            node.closing = true;
             if(node.connected){
                 node.connection.once('close', function(){
                     done();
