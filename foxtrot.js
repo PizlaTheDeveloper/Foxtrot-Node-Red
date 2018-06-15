@@ -10,6 +10,7 @@ module.exports = function(RED) {
         this.term = decodeURI(n.termination);
         this.connected = false;
         this.connecting = false;
+        this.closing = false;
         this.foxtrotNodes = {};
 
         var node = this;
@@ -30,11 +31,24 @@ module.exports = function(RED) {
             enableFoxtrotNode(foxtrotNode);        
         }
 
-        this.deregisterFoxtrotNode = function(foxtrotNode){
+        this.deregisterFoxtrotNode = function(foxtrotNode, done){
             delete node.foxtrotNodes[foxtrotNode.pubvar];
-            if(Object.keys(node.foxtrotNodes).length === 0){
-            
+            if(node.closing){
+                return done();
             }
+            if(Object.keys(node.foxtrotNodes).length === 0){
+                if(node.connected){
+                    this.connection.once('close', function(){
+                        done();
+                    });
+                    this.connection.destroy();    
+                }
+                else{
+                    this.connection.destroy();  
+                    done();    
+                }
+            }
+            done();
         }
 
         this.connect = function(){
@@ -117,14 +131,14 @@ module.exports = function(RED) {
         }
 
         this.on('close', function(done){
-            if(this.connected){
-                this.connection.once('close', function(){
+            if(node.connected){
+                node.connection.once('close', function(){
                     done();
                 });
-                this.connection.destroy();
+                node.connection.destroy();
             }    
             else{
-                if(this.connecting) this.connection.destroy();
+                if(node.connecting) node.connection.destroy();
                 done();
             }
         });        
@@ -143,9 +157,14 @@ module.exports = function(RED) {
         if(this.plccoms){            
             if(this.pubvar){                
                 this.plccoms.registerFoxtrotNode(this);
-            }
+            }            
         }
-        
+
+        this.on('close', function(done) {
+            if(node.plccoms) {
+                node.plccoms.deregister(node, done);
+            }
+        });        
     }
     RED.nodes.registerType("foxtrot-input", FoxtrotInputNode);
 
@@ -156,7 +175,13 @@ module.exports = function(RED) {
         this.pubvar = config.pubvar;
         this.plccoms = RED.nodes.getNode(config.plccoms);
 
-        var node = this;        
+        var node = this;  
+        
+        this.on('close', function(done) {
+            if(node.plccoms) {
+                node.plccoms.deregister(node, done);
+            }
+        });
     }
     RED.nodes.registerType("foxtrot-output", FoxtrotOutputNode);
 
