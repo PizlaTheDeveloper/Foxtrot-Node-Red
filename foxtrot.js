@@ -18,7 +18,15 @@ module.exports = function(RED) {
         var enableFoxtrotNode = function(foxtrotNode){
             if(node.connected){
                 foxtrotNode.status({fill:"green", shape:"ring", text:"node-red:common.status.connected"});
+                node.connection.write('GET:' + foxtrotNode.pubvar + node.term);
                 node.connection.write('EN:' + foxtrotNode.pubvar + node.term);
+            }
+        }
+
+        var disableFoxtrotNode = function(foxtrotNode){
+            if(node.connected){
+                foxtrotNode.status({fill:"red", shape:"ring", text:"node-red:common.status.disconnected"});
+                node.connection.write('DI:' + foxtrotNode.pubvar + node.term);
             }
         }
 
@@ -48,7 +56,10 @@ module.exports = function(RED) {
                     done();    
                 }
             }
-            done();
+            else{ 
+                disableFoxtrotNode();
+                done();
+            }
         }
 
         this.connect = function(){
@@ -72,11 +83,14 @@ module.exports = function(RED) {
                         var [method, params] = element.split(/:(.*)/);        
                         switch(method){
                             case 'DIFF':
+                            case 'GET':
                                 var [pubvar, value] = params.split(',');
                                 if(node.foxtrotNodes.hasOwnProperty(pubvar)){
-                                    node.foxtrotNodes[pubvar].send({payload:value});
+                                    var n = node.foxtrotNodes[pubvar];
+                                    n.send({topic: n.topic, payload:value});
                                 }
-                                break;
+                                break;                     
+                                
                             case 'ERROR':
                                 console.log('PlcComS: ' + element);
                                 var [code, text] = params.split(/ (.*)/);
@@ -92,6 +106,7 @@ module.exports = function(RED) {
                                     
                                 }
                                 break; 
+                                
                             case 'WARNING':
                                 console.log('PlcComS: ' + element);
                                 [code, text] = params.split(/ (.*)/);
@@ -112,12 +127,14 @@ module.exports = function(RED) {
                     Object.keys(node.foxtrotNodes).forEach(function(pubvar) {
                         node.foxtrotNodes[pubvar].status({fill:"red", shape:"ring", text:"node-red:common.status.disconnected"});
                     });
-                    setTimeout(function(){
-                        Object.keys(node.foxtrotNodes).forEach(function(pubvar) {
-                            node.foxtrotNodes[pubvar].status({fill:"yellow", shape:"ring", text:"node-red:common.status.connecting"});
-                            node.connect();
-                        });     
-                    }, 4000);
+                    if(!node.closing){
+                        setTimeout(function(){
+                            Object.keys(node.foxtrotNodes).forEach(function(pubvar) {
+                                node.foxtrotNodes[pubvar].status({fill:"yellow", shape:"ring", text:"node-red:common.status.connecting"});                            
+                            });    
+                            node.connect(); 
+                        }, 4000);
+                    }
                 });
 
                 node.connection.on('error', function(error){
@@ -131,6 +148,7 @@ module.exports = function(RED) {
         }
 
         this.on('close', function(done){
+            node.closing = true;
             if(node.connected){
                 node.connection.once('close', function(){
                     done();
@@ -151,6 +169,7 @@ module.exports = function(RED) {
         
         this.pubvar = config.pubvar;
         this.plccoms = RED.nodes.getNode(config.plccoms);
+        this.topic = config.topic || config.pubvar || "";
 
         var node = this;
 
