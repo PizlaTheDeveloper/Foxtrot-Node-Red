@@ -26,8 +26,9 @@
         icon: "foxtrot-icon.png",
         label: function() {
             if(this.pubvar){
-                if(this.topic) return this.topic + ":" + this.pubvar;
-                else return this.pubvar;
+                var pubvar = JSON.parse(this.pubvar);
+                if(this.topic) return this.topic + " : " + pubvar.type;
+                else return pubvar.name + " : " + pubvar.type;
             }
             else return "Foxtrot";
         },
@@ -61,7 +62,6 @@
    
                 var plcComSConfigNode = RED.nodes.node($('#node-input-plccoms').val());
                 if(plcComSConfigNode){
-                    console.log('PlcComS specified')
                     $.getJSON('pubvarlist', {host : plcComSConfigNode.host, port : plcComSConfigNode.port, termination : plcComSConfigNode.termination}, function(vars) {
                         if(!$.isArray(vars) ||  !vars.length) {
                             $('#node-input-pubvar').empty().append($('<option></option>')
@@ -72,14 +72,14 @@
                         else{
                             $.each(vars, function(index, val) {
                                 $('#node-input-pubvar').append($('<option></option>')
-                                                        .attr('value', val)
-                                                        .text(val));            
+                                                        .attr('value', JSON.stringify(val))
+                                                        .text(val.name + " : " + val.type));            
                             });
                             $('#node-input-pubvar').val(node.pubvar);
                         }
                     });
                 }
-                else console.log('PlcComS not specified')
+                else RED.log.debug('PlcComS not specified')
             });
 
             $('#node-config-listvars-button').click();
@@ -99,7 +99,11 @@
         outputs:0,
         icon: "foxtrot-icon.png",
         label: function() {
-            return this.pubvar || "Foxtrot";
+            if(this.pubvar){
+                var pubvar = JSON.parse(this.pubvar);
+                return pubvar.name + " : " + pubvar.type;
+            }
+            else return "Foxtrot";
         },
         oneditprepare: function() {
 
@@ -132,23 +136,24 @@
                 var plcComSConfigNode = RED.nodes.node($('#node-input-plccoms').val());
                 if(plcComSConfigNode){
                     $.getJSON('pubvarlist', {host : plcComSConfigNode.host, port : plcComSConfigNode.port, termination : plcComSConfigNode.termination}, function(vars) {
-                        if(!$.isArray(vars) ||  !vars.length) {
+                        if(!$.isArray(vars) || !vars.length) {
                             $('#node-input-pubvar').empty().append($('<option></option>')
                                                     .attr('value', '')
                                                     .attr('hidden', 'hidden')
                                                     .text('No variable'));        
                         }
                         else{
+                            console.log(vars);
                             $.each(vars, function(index, val) {
                                 $('#node-input-pubvar').append($('<option></option>')
-                                                        .attr('value', val)
-                                                        .text(val));            
+                                                        .attr('value', JSON.stringify(val))
+                                                        .text(val.name + " : " + val.type));            
                             });
                             $('#node-input-pubvar').val(node.pubvar);
                         }
                     });
                 }
-                else console.log('PlcComS not specified')
+                else RED.log.debug('PlcComS not specified')
             });
 
             $('#node-config-listvars-button').click();
