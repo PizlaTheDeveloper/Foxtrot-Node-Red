@@ -60,6 +60,21 @@ module.exports = function(RED) {
             }
         }
 
+        this.setValue = function(pubvar, val){
+            if(node.connected){
+                if (val === null || val === undefined)  val = "";
+                else{ 
+                    if (!Buffer.isBuffer(val)) {
+                        if (typeof val === "object") val = JSON.stringify(val);
+                        else{ 
+                            if(typeof val !== "string") val = String(val);
+                        }
+                    }
+                }
+                node.connection.write('SET:' + pubvar.name + ',' + val + node.term);
+            }    
+        }
+
         this.connect = function(){
             
             if(!node.connected && !node.connecting){
@@ -182,19 +197,14 @@ module.exports = function(RED) {
 
         var node = this;
 
-        if(this.plccoms){            
-            if(this.pubvar.name){                
-                this.plccoms.registerFoxtrotNode(this);
-            }            
-        }
+        if(this.plccoms && this.pubvar.name){                
+                
+            this.plccoms.registerFoxtrotNode(this);
 
-        this.on('close', function(done) {
-            if(node.plccoms) {
-                if(this.pubvar.name){ 
-                    node.plccoms.deregister(node, done);
-                }
-            }
-        });        
+            this.on('close', function(done){
+                node.plccoms.deregister(node, done);
+            });       
+        }      
     }
     RED.nodes.registerType("foxtrot-input", FoxtrotInputNode);
 
@@ -207,19 +217,18 @@ module.exports = function(RED) {
 
         var node = this;
 
-        if(this.plccoms){            
-            if(this.pubvar.name){                
-                this.plccoms.registerFoxtrotNode(this);
-            }            
-        }
+        if(this.plccoms && this.pubvar.name){                            
+                
+            this.plccoms.registerFoxtrotNode(this);
 
-        this.on('close', function(done) {
-            if(node.plccoms) {
-                if(this.pubvar.name){     
-                    node.plccoms.deregister(node, done);
-                }
-            }
-        });
+            this.on('input', function(msg){
+                this.plccoms.setValue(node.pubvar, msg.payload);
+            });
+            
+            this.on('close', function(done){
+                node.plccoms.deregister(node, done);
+            });                   
+        }
     }
     RED.nodes.registerType("foxtrot-output", FoxtrotOutputNode);
 
