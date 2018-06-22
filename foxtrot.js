@@ -15,31 +15,25 @@ module.exports = function(RED) {
 
         var node = this;
 
-        var enableFoxtrotNode = function(foxtrotNode){
-            if(node.connected){
-                foxtrotNode.status({fill:"green", shape:"ring", text:"node-red:common.status.connected"});
-                node.connection.write('EN:' + foxtrotNode.pubvar + node.term);
-            }
-        }
-
-        var disableFoxtrotNode = function(foxtrotNode){
-            if(node.connected){
-                foxtrotNode.status({fill:"red", shape:"ring", text:"node-red:common.status.disconnected"});
-                node.connection.write('DI:' + foxtrotNode.pubvar + node.term);
-            }
-        }
 
         this.registerFoxtrotNode = function(foxtrotNode){
+            RED.log.debug("Registering foxtrot node");
             foxtrotNode.status({fill:"yellow", shape:"ring", text:"node-red:common.status.connecting"});
-            node.foxtrotNodes[foxtrotNode.pubvar] = foxtrotNode;
+            node.foxtrotNodes[foxtrotNode.pubvar.name] = foxtrotNode;
             if(Object.keys(node.foxtrotNodes).length === 1){
                 node.connect();
-            } 
-            enableFoxtrotNode(foxtrotNode);        
+            }   
+            if(node.connected){
+                foxtrotNode.status({fill:"green", shape:"ring", text:"node-red:common.status.connected"});    
+                node.connection.write('GET:' + foxtrotNode.pubvar.name + node.term);
+                if(foxtrotNode.type === 'foxtrot-input'){
+                    node.connection.write('EN:' + foxtrotNode.pubvar.name + node.term);
+                }
+            }  
         }
 
         this.deregisterFoxtrotNode = function(foxtrotNode, done){
-            delete node.foxtrotNodes[foxtrotNode.pubvar];
+            delete node.foxtrotNodes[foxtrotNode.pubvar.name];
             if(node.closing){
                 return done();
             }
@@ -56,9 +50,29 @@ module.exports = function(RED) {
                 }
             }
             else{ 
-                disableFoxtrotNode();
+                if(node.connected){
+                    foxtrotNode.status({fill:"red", shape:"ring", text:"node-red:common.status.disconnected"});
+                    if(foxtrotNode.type === 'foxtrot-input'){
+                        node.connection.write('DI:' + foxtrotNode.pubvar.name + node.term);
+                    }
+                }
                 done();
             }
+        }
+
+        this.setValue = function(pubvar, val){
+            if(node.connected){
+                if (val === null || val === undefined)  val = "";
+                else{ 
+                    if (!Buffer.isBuffer(val)) {
+                        if (typeof val === "object") val = JSON.stringify(val);
+                        else{ 
+                            if(typeof val !== "string") val = String(val);
+                        }
+                    }
+                }
+                node.connection.write('SET:' + pubvar.name + ',' + val + node.term);
+            }    
         }
 
         this.connect = function(){
@@ -71,7 +85,12 @@ module.exports = function(RED) {
                     node.connecting = false;
                     node.connected = true;
                     Object.keys(node.foxtrotNodes).forEach(function(pubvar) {
-                        enableFoxtrotNode(node.foxtrotNodes[pubvar]);
+                        var foxtrotNode = node.foxtrotNodes[pubvar];
+                        foxtrotNode.status({fill:"green", shape:"ring", text:"node-red:common.status.connected"});    
+                        node.connection.write('GET:' + foxtrotNode.pubvar.name + node.term);
+                        if(foxtrotNode.type === 'foxtrot-input'){
+                            node.connection.write('EN:' + foxtrotNode.pubvar.name + node.term);
+                        }
                     });
                 });
 
@@ -79,16 +98,22 @@ module.exports = function(RED) {
                     var responses = data.toString().split('\r\n');
                     responses = responses.filter(function(value){ return value !== ''; }); // delete empty lines
                     responses.forEach(element => {
+                        RED.log.debug('PlcComS: ' + element);
                         var [method, params] = element.split(/:(.*)/);        
                         switch(method){
                             case 'DIFF':
+                            case 'GET':
                                 var [pubvar, value] = params.split(',');
                                 if(node.foxtrotNodes.hasOwnProperty(pubvar)){
-                                    node.foxtrotNodes[pubvar].send({payload:value});
+                                    var foxtrotNode = node.foxtrotNodes[pubvar];
+                                    foxtrotNode.status({fill:"green", shape:"ring", text:"active"});
+                                    if(foxtrotNode.type === 'foxtrot-input'){  
+                                        foxtrotNode.send({topic: foxtrotNode.topic, payload:value});
+                                    }
                                 }
-                                break;
-                            case 'ERROR':
-                                console.log('PlcComS: ' + element);
+                                break;                     
+                                
+                            case 'ERROR':                                
                                 var [code, text] = params.split(/ (.*)/);
                                 switch(Number(code)){
                                     case 33: // Unknown register name
@@ -102,13 +127,17 @@ module.exports = function(RED) {
                                     
                                 }
                                 break; 
+                                
                             case 'WARNING':
-                                console.log('PlcComS: ' + element);
                                 [code, text] = params.split(/ (.*)/);
                                 switch(Number(code)){
                                     case 250: // changed public file
                                         Object.keys(node.foxtrotNodes).forEach(function(pubvar) {                                            
-                                            enableFoxtrotNode(node.foxtrotNodes[pubvar]);
+                                            var foxtrotNode = node.foxtrotNodes[pubvar];
+                                            node.connection.write('GET:' + foxtrotNode.pubvar.name + node.term);
+                                            if(foxtrotNode.type === 'foxtrot-input'){                                                
+                                                node.connection.write('EN:' + foxtrotNode.pubvar.name + node.term);
+                                            }
                                         });
                                 }
                                 break;
@@ -162,22 +191,20 @@ module.exports = function(RED) {
     function FoxtrotInputNode(config) {
         RED.nodes.createNode(this,config);
         
-        this.pubvar = config.pubvar;
+        this.pubvar = config.pubvar? JSON.parse(config.pubvar) : {};
         this.plccoms = RED.nodes.getNode(config.plccoms);
+        this.topic = config.topic || this.pubvar.name || "";
 
         var node = this;
 
-        if(this.plccoms){            
-            if(this.pubvar){                
-                this.plccoms.registerFoxtrotNode(this);
-            }            
-        }
+        if(this.plccoms && this.pubvar.name){                
+                
+            this.plccoms.registerFoxtrotNode(this);
 
-        this.on('close', function(done) {
-            if(node.plccoms) {
+            this.on('close', function(done){
                 node.plccoms.deregister(node, done);
-            }
-        });        
+            });       
+        }      
     }
     RED.nodes.registerType("foxtrot-input", FoxtrotInputNode);
 
@@ -185,16 +212,23 @@ module.exports = function(RED) {
     function FoxtrotOutputNode(config) {
         RED.nodes.createNode(this,config);
         
-        this.pubvar = config.pubvar;
+        this.pubvar = config.pubvar? JSON.parse(config.pubvar) : {};
         this.plccoms = RED.nodes.getNode(config.plccoms);
 
-        var node = this;  
-        
-        this.on('close', function(done) {
-            if(node.plccoms) {
+        var node = this;
+
+        if(this.plccoms && this.pubvar.name){                            
+                
+            this.plccoms.registerFoxtrotNode(this);
+
+            this.on('input', function(msg){
+                this.plccoms.setValue(node.pubvar, msg.payload);
+            });
+            
+            this.on('close', function(done){
                 node.plccoms.deregister(node, done);
-            }
-        });
+            });                   
+        }
     }
     RED.nodes.registerType("foxtrot-output", FoxtrotOutputNode);
 
@@ -206,7 +240,6 @@ module.exports = function(RED) {
 
         var varlist = [];
         var done = function(){
-            console.log(varlist.toString());
             res.json(varlist);
             connection.destroy();   
         }
@@ -224,9 +257,9 @@ module.exports = function(RED) {
                 [method, params] = element.split(/:(.*)/);         
                 switch(method){  
                     case 'LIST':
-                        var v = params.split(',')[0];
-                        if(v === '') done();
-                        else if(varlist.indexOf(v) < 0) varlist.push(v);
+                        var [name, type] = params.split(/,([^\*|^\~]*)/);
+                        if(name === '') done();
+                        else /*if(varlist.indexOf(v) < 0)*/ varlist.push({name:name,type:type});
                         break;  
                 }
             });

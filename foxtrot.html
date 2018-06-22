@@ -18,13 +18,19 @@
         color: '#a6bbcf',
         defaults:{
             plccoms: {value:"", type:"plccoms", required:true},
-            pubvar: {value:"", required:true}
+            pubvar: {value:"", required:true},
+            topic : {value:"", required:false}
         },
         inputs:0,
         outputs:1,
         icon: "foxtrot-icon.png",
         label: function() {
-            return this.pubvar || "Foxtrot";
+            if(this.pubvar){
+                var pubvar = JSON.parse(this.pubvar);
+                if(this.topic) return this.topic + " : " + pubvar.type;
+                else return pubvar.name + " : " + pubvar.type;
+            }
+            else return "Foxtrot";
         },
         oneditprepare: function() {
 
@@ -56,7 +62,6 @@
    
                 var plcComSConfigNode = RED.nodes.node($('#node-input-plccoms').val());
                 if(plcComSConfigNode){
-                    console.log('PlcComS specified')
                     $.getJSON('pubvarlist', {host : plcComSConfigNode.host, port : plcComSConfigNode.port, termination : plcComSConfigNode.termination}, function(vars) {
                         if(!$.isArray(vars) ||  !vars.length) {
                             $('#node-input-pubvar').empty().append($('<option></option>')
@@ -67,14 +72,14 @@
                         else{
                             $.each(vars, function(index, val) {
                                 $('#node-input-pubvar').append($('<option></option>')
-                                                        .attr('value', val)
-                                                        .text(val));            
+                                                        .attr('value', JSON.stringify(val))
+                                                        .text(val.name + " : " + val.type));            
                             });
                             $('#node-input-pubvar').val(node.pubvar);
                         }
                     });
                 }
-                else console.log('PlcComS not specified')
+                else RED.log.debug('PlcComS not specified')
             });
 
             $('#node-config-listvars-button').click();
@@ -94,7 +99,11 @@
         outputs:0,
         icon: "foxtrot-icon.png",
         label: function() {
-            return this.pubvar || "Foxtrot";
+            if(this.pubvar){
+                var pubvar = JSON.parse(this.pubvar);
+                return pubvar.name + " : " + pubvar.type;
+            }
+            else return "Foxtrot";
         },
         oneditprepare: function() {
 
@@ -127,23 +136,24 @@
                 var plcComSConfigNode = RED.nodes.node($('#node-input-plccoms').val());
                 if(plcComSConfigNode){
                     $.getJSON('pubvarlist', {host : plcComSConfigNode.host, port : plcComSConfigNode.port, termination : plcComSConfigNode.termination}, function(vars) {
-                        if(!$.isArray(vars) ||  !vars.length) {
+                        if(!$.isArray(vars) || !vars.length) {
                             $('#node-input-pubvar').empty().append($('<option></option>')
                                                     .attr('value', '')
                                                     .attr('hidden', 'hidden')
                                                     .text('No variable'));        
                         }
                         else{
+                            console.log(vars);
                             $.each(vars, function(index, val) {
                                 $('#node-input-pubvar').append($('<option></option>')
-                                                        .attr('value', val)
-                                                        .text(val));            
+                                                        .attr('value', JSON.stringify(val))
+                                                        .text(val.name + " : " + val.type));            
                             });
                             $('#node-input-pubvar').val(node.pubvar);
                         }
                     });
                 }
-                else console.log('PlcComS not specified')
+                else RED.log.debug('PlcComS not specified')
             });
 
             $('#node-config-listvars-button').click();
@@ -175,6 +185,10 @@
         <label for="node-input-pubvar"><i class="icon-tag"></i> Variables</label>
         <select id="node-input-pubvar"></select>
         <a id="node-config-listvars-button" class="btn"><i class="icon-refresh"></i></a>
+    </div>
+    <div class="form-row">
+        <label for="node-input-topic"><i class="fa fa-tasks"></i> Topic</label>
+        <input type="text" id="node-input-topic">
     </div>
 </script>
 
