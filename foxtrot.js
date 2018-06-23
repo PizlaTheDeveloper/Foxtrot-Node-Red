@@ -1,3 +1,8 @@
+// Copyright (c) 2018 Jan Martinec
+// 
+// This software is released under the MIT License.
+// https://opensource.org/licenses/MIT
+
 module.exports = function(RED) { 
 
     function PlcComSConfigNode(n) {
