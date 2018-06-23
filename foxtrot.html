@@ -19,6 +19,7 @@
         defaults:{
             plccoms: {value:"", type:"plccoms", required:true},
             pubvar: {value:"", required:true},
+            delta: {value:"", required:false},
             topic : {value:"", required:false}
         },
         inputs:0,
@@ -50,6 +51,7 @@
                 else{
                     $('#node-input-pubvar').prop('disabled', true);    
                     $('#node-config-listvars-button').attr('disabled', 'disabled');
+                    $('#node-input-delta').prop('disabled', true);  
                 }
 
             });
@@ -187,6 +189,10 @@
         <a id="node-config-listvars-button" class="btn"><i class="icon-refresh"></i></a>
     </div>
     <div class="form-row">
+        <label for="node-input-delta"><i class="icon-resize-full"></i> Delta</label>
+        <input type="text" id="node-input-delta">
+    </div>
+    <div class="form-row">
         <label for="node-input-topic"><i class="fa fa-tasks"></i> Topic</label>
         <input type="text" id="node-input-topic">
     </div>
@@ -205,9 +211,33 @@
 </script>
 
 <script type="text/x-red" data-help-name="foxtrot-input">
-    <p>Tecomat Foxtrot input node</p>
+    <p>Connects to a Tecomat Foxtrot PLC via PlcComS and reports value changes of selected variable</p>
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">string</span></dt>
+        <dd>a string value of selected varible</dd>
+        <dt>topic <span class="property-type">string</span></dt>
+        <dd>selected variable name or user defined string</dd>
+    </dl>
+    <h3>Details</h3>
+    <p>This node requires a connection to a PlcComS server to be configured. This is configured by clicking the pencil icon.</p>
+    <p>Several Foxtrot nodes can share the same PlcComS connection if required.</p>
+    <p>After specifying PlcComS connection the list of Variables can be loaded. 
+        The list can be whenever reloaded using the refresh button.</p>
+    <p>The output <code>msg</code> is sent in case of value change of selected variable. 
+        Delta parameter can specify the amount of change of variable value.</p>
 </script>
 
 <script type="text/x-red" data-help-name="foxtrot-output">
-    <p>Tecomat Foxtrot output node</p>
+    <p>Connects to a Tecomat Foxtrot PLC via PlcComS and allows to set value of selected variable using input messages</p>
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">string</span></dt>
+        <dd>should contain a string representation of value to set to PLC variable</dd>
+    </dl>
+    <h3>Details</h3>
+    <p>This node requires a connection to a PlcComS server to be configured. This is configured by clicking the pencil icon.</p>
+    <p>Several Foxtrot nodes can share the same PlcComS connection if required.</p>
+    <p>After specifying PlcComS connection the list of Variables can be loaded. 
+            The list can be whenever reloaded using the refresh button.</p>
 </script>

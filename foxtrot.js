@@ -4,6 +4,7 @@ module.exports = function(RED) {
         RED.nodes.createNode(this,n);
 
         var net = require('net');
+        var msg;
 
         this.host = n.host;
         this.port = n.port;
@@ -15,28 +16,33 @@ module.exports = function(RED) {
 
         var node = this;
 
+        this.writeServer = function(msg){
+            RED.log.debug('PlcComS ← ' + msg);
+            node.connection.write(msg);    
+        }
 
         this.registerFoxtrotNode = function(foxtrotNode){
+            
             RED.log.debug("Registering foxtrot node");
             foxtrotNode.status({fill:"yellow", shape:"ring", text:"node-red:common.status.connecting"});
             node.foxtrotNodes[foxtrotNode.pubvar.name] = foxtrotNode;
-            if(Object.keys(node.foxtrotNodes).length === 1){
-                node.connect();
-            }   
+            
+            if(Object.keys(node.foxtrotNodes).length === 1) node.connect();
+
             if(node.connected){
-                foxtrotNode.status({fill:"green", shape:"ring", text:"node-red:common.status.connected"});    
-                node.connection.write('GET:' + foxtrotNode.pubvar.name + node.term);
+                foxtrotNode.status({fill:"green", shape:"ring", text:"node-red:common.status.connected"});                    
+                node.writeServer('GET:' + foxtrotNode.pubvar.name + node.term);
                 if(foxtrotNode.type === 'foxtrot-input'){
-                    node.connection.write('EN:' + foxtrotNode.pubvar.name + node.term);
+                    node.writeServer('EN:' + foxtrotNode.pubvar.name + ' ' + foxtrotNode.pubvar.delta + node.term);
                 }
             }  
         }
 
         this.deregisterFoxtrotNode = function(foxtrotNode, done){
             delete node.foxtrotNodes[foxtrotNode.pubvar.name];
-            if(node.closing){
-                return done();
-            }
+            
+            if(node.closing) return done();
+            
             if(Object.keys(node.foxtrotNodes).length === 0){
                 if(node.connected){
                     this.connection.once('close', function(){
@@ -53,7 +59,7 @@ module.exports = function(RED) {
                 if(node.connected){
                     foxtrotNode.status({fill:"red", shape:"ring", text:"node-red:common.status.disconnected"});
                     if(foxtrotNode.type === 'foxtrot-input'){
-                        node.connection.write('DI:' + foxtrotNode.pubvar.name + node.term);
+                        node.writeServer('DI:' + foxtrotNode.pubvar.name + node.term);
                     }
                 }
                 done();
@@ -71,7 +77,7 @@ module.exports = function(RED) {
                         }
                     }
                 }
-                node.connection.write('SET:' + pubvar.name + ',' + val + node.term);
+                node.writeServer('SET:' + pubvar.name + ',' + val + node.term);
             }    
         }
 
@@ -87,9 +93,9 @@ module.exports = function(RED) {
                     Object.keys(node.foxtrotNodes).forEach(function(pubvar) {
                         var foxtrotNode = node.foxtrotNodes[pubvar];
                         foxtrotNode.status({fill:"green", shape:"ring", text:"node-red:common.status.connected"});    
-                        node.connection.write('GET:' + foxtrotNode.pubvar.name + node.term);
+                        node.writeServer('GET:' + foxtrotNode.pubvar.name + node.term);
                         if(foxtrotNode.type === 'foxtrot-input'){
-                            node.connection.write('EN:' + foxtrotNode.pubvar.name + node.term);
+                            node.writeServer('EN:' + foxtrotNode.pubvar.name + ' ' + foxtrotNode.pubvar.delta + node.term);
                         }
                     });
                 });
@@ -98,7 +104,7 @@ module.exports = function(RED) {
                     var responses = data.toString().split('\r\n');
                     responses = responses.filter(function(value){ return value !== ''; }); // delete empty lines
                     responses.forEach(element => {
-                        RED.log.debug('PlcComS: ' + element);
+                        RED.log.debug('PlcComS → ' + element);
                         var [method, params] = element.split(/:(.*)/);        
                         switch(method){
                             case 'DIFF':
@@ -134,9 +140,9 @@ module.exports = function(RED) {
                                     case 250: // changed public file
                                         Object.keys(node.foxtrotNodes).forEach(function(pubvar) {                                            
                                             var foxtrotNode = node.foxtrotNodes[pubvar];
-                                            node.connection.write('GET:' + foxtrotNode.pubvar.name + node.term);
+                                            node.writeServer('GET:' + foxtrotNode.pubvar.name + node.term);
                                             if(foxtrotNode.type === 'foxtrot-input'){                                                
-                                                node.connection.write('EN:' + foxtrotNode.pubvar.name + node.term);
+                                                node.writeServer('EN:' + foxtrotNode.pubvar.name + ' ' + foxtrotNode.pubvar.delta + node.term);
                                             }
                                         });
                                 }
@@ -191,8 +197,9 @@ module.exports = function(RED) {
     function FoxtrotInputNode(config) {
         RED.nodes.createNode(this,config);
         
-        this.pubvar = config.pubvar? JSON.parse(config.pubvar) : {};
         this.plccoms = RED.nodes.getNode(config.plccoms);
+        this.pubvar = config.pubvar? JSON.parse(config.pubvar) : {};
+        this.pubvar.delta = config.delta || "";
         this.topic = config.topic || this.pubvar.name || "";
 
         var node = this;
