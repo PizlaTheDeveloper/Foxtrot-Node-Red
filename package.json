@@ -1,10 +1,16 @@
 {
     "name": "node-red-contrib-foxtrotnode",
-    "version": "0.0.1",
-    "description": "Foxtrot node for node-red",
-    "keywords": [
-        "node-red"
-    ],
+    "version": "1.0.1",
+    "description": "A set of nodes to control Tecomat Foxtrot PLC variables",
+    "keywords": ["node-red", "tecomat", "foxtrot", "plc"],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/PizlaTheDeveloper/Foxtrot-Node-Red.git"
+    },
+    "license" : "MIT",
+    "bugs": {
+        "url": "https://github.com/PizlaTheDeveloper/Foxtrot-Node-Red/issues"
+    },
     "node-red": {
         "nodes": {
             "foxtrot": "foxtrot.js"
