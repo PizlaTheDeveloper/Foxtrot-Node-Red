@@ -3,9 +3,12 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+const iconv = require('iconv-lite');
+
 module.exports = function(RED) { 
 
     function PlcComSConfigNode(n) {
+
         RED.nodes.createNode(this,n);
 
         var net = require('net');
@@ -44,6 +47,7 @@ module.exports = function(RED) {
         }
 
         this.deregisterFoxtrotNode = function(foxtrotNode, done){
+            
             delete node.foxtrotNodes[foxtrotNode.pubvar.name];
             
             if(node.closing) return done();
@@ -106,8 +110,19 @@ module.exports = function(RED) {
                 });
 
                 node.connection.on('data', function(data){
-                    var responses = data.toString().split('\r\n');
-                    responses = responses.filter(function(value){ return value !== ''; }); // delete empty lines
+
+                    var stringData = iconv.decode(data, 'win1250');
+
+                    if(this.restData){ 
+                        stringData = this.restData + stringData;
+                        RED.log.debug('PlcComS → Chunks concatenated');
+                    }
+
+                    var responses = stringData.split('\r\n');
+
+                    this.restData = responses.pop(); // would be empty if complete response was received
+                    if(this.restData) RED.log.debug('PlcComS → Some data will be concatenated with next chunk');
+                    
                     responses.forEach(element => {
                         RED.log.debug('PlcComS → ' + element);
                         var [method, params] = element.split(/:(.*)/);        
@@ -263,8 +278,19 @@ module.exports = function(RED) {
         connection.on("error", done);
 
         connection.on("data", function(data) {
-            var responses = data.toString().split('\r\n');
-            responses = responses.filter(function(value){ return value !== ''; }); // delete empty lines
+
+            var stringData = iconv.decode(data, 'win1250');
+
+            if(this.restData){ 
+                stringData = this.restData + stringData;
+                RED.log.debug('PlcComS → Chunks concatenated');
+            }
+
+            var responses = stringData.split('\r\n');
+
+            this.restData = responses.pop(); // would be empty if complete response was received
+            if(this.restData) RED.log.debug('PlcComS → Some data will be concatenated with next chunk');
+
             responses.forEach(element => {
                 [method, params] = element.split(/:(.*)/);         
                 switch(method){  
