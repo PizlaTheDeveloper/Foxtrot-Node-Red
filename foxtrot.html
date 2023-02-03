@@ -95,6 +95,11 @@
   }
 
   function prepare_edit(node) {
+    if (!node.format) {
+      // was not defined yet
+      $("#node-input-format").val("text");
+    }
+
     $("#node-input-plccoms").on("change", function (data) {
       var plcComSConfigNode = RED.nodes.node(this.value);
       if (plcComSConfigNode) {
@@ -130,6 +135,7 @@
       pubvar: { value: "", required: true },
       delta: { value: "", required: false },
       topic: { value: "", required: false },
+      format: { value: "text", required: true },
     },
     inputs: 0,
     outputs: 1,
@@ -163,11 +169,11 @@
 
 <script type="text/x-red" data-template-name="plccoms">
   <div class="form-row">
-      <label for="node-config-input-host"><i class="icon-bookmark"></i> Host</label>
+      <label for="node-config-input-host"> Host</label>
       <input type="text" id="node-config-input-host">
   </div>
   <div class="form-row">
-      <label for="node-config-input-port"><i class="icon-bookmark"></i> Port</label>
+      <label for="node-config-input-port"> Port</label>
       <input type="text" id="node-config-input-port">
   </div>
   <div class="form-row">
@@ -178,33 +184,50 @@
 
 <script type="text/x-red" data-template-name="foxtrot-input">
   <div class="form-row">
-      <label for="node-input-plccoms"><i class="icon-globe"></i> PlcComS</label>
+      <label for="node-input-plccoms"> PlcComS</label>
       <input type="text" id="node-input-plccoms" placeholder="Select PlcComS server">
   </div>
   <div class="form-row">
-      <label for="node-input-pubvar"><i class="icon-tag"></i> Variables</label>
-      <select id="node-input-pubvar"></select>
-      <a id="node-config-listvars-button" class="red-ui-button"><i class="fa fa-refresh"></i></a>
+    <label for="node-input-pubvar"> Variables</label>
+    <div style="width: 70%; display: inline-flex;">
+      <select id="node-input-pubvar" style="flex-grow: 1;">
+      </select>
+      <dev style="margin-left: 10px;">
+        <a id="node-config-listvars-button" class="red-ui-button"><i class="fa fa-refresh"></i></a>
+      </dev>
+    </div>
   </div>
   <div class="form-row">
-      <label for="node-input-delta"><i class="icon-resize-full"></i> Delta</label>
+      <label for="node-input-delta"> Delta</label>
       <input type="text" id="node-input-delta">
   </div>
   <div class="form-row">
       <label for="node-input-topic"><i class="fa fa-tasks"></i> Topic</label>
       <input type="text" id="node-input-topic">
   </div>
+  <div class="form-row">
+    <label for="node-input-format"> Data format</label>
+    <select id="node-input-format" style="width: 70%;">
+      <option value="text">Text</option>
+      <option value="native">Native</option>
+    </select>
+  </div>
 </script>
 
 <script type="text/x-red" data-template-name="foxtrot-output">
   <div class="form-row">
-      <label for="node-input-plccoms"><i class="icon-globe"></i> PlcComS</label>
+      <label for="node-input-plccoms"> PlcComS</label>
       <input type="text" id="node-input-plccoms" placeholder="Select PlcComS server">
   </div>
   <div class="form-row">
-      <label for="node-input-pubvar"><i class="icon-tag"></i> Variables</label>
-      <select id="node-input-pubvar"></select>
-      <a id="node-config-listvars-button" class="red-ui-button"><i class="fa fa-refresh"></i></a>
+    <label for="node-input-pubvar"> Variables</label>
+    <div style="width: 70%; display: inline-flex;">
+      <select id="node-input-pubvar" style="flex-grow: 1;">
+      </select>
+      <dev style="margin-left: 10px;">
+        <a id="node-config-listvars-button" class="red-ui-button"><i class="fa fa-refresh"></i></a>
+      </dev>
+    </div>
   </div>
 </script>
 
