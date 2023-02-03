@@ -1,256 +1,247 @@
 <!--
  Copyright (c) 2018 Jan Martinec
- 
+
  This software is released under the MIT License.
  https://opensource.org/licenses/MIT
 -->
 
 <script type="text/javascript">
-    RED.nodes.registerType('plccoms',{
-        category: 'config',
-        defaults: {
-            host: {value:"localhost", required:true},
-            port: {value:5010, required:true, validate:RED.validators.number()},
-            termination: {value:"%0D%0A"}
-        },
-        label: function() {
-            return this.host + ":" + this.port;
-        },
-    });
+  RED.nodes.registerType("plccoms", {
+    category: "config",
+    defaults: {
+      host: { value: "localhost", required: true },
+      port: { value: 5010, required: true, validate: RED.validators.number() },
+      termination: { value: "%0D%0A" },
+    },
+    label: function () {
+      return this.host + ":" + this.port;
+    },
+  });
 </script>
 
 <script type="text/javascript">
-    RED.nodes.registerType('foxtrot-input',{
-        category: 'tecomat',
-        color: '#a6bbcf',
-        defaults:{
-            plccoms: {value:"", type:"plccoms", required:true},
-            pubvar: {value:"", required:true},
-            delta: {value:"", required:false},
-            topic : {value:"", required:false}
-        },
-        inputs:0,
-        outputs:1,
-        icon: "foxtrot-icon.png",
-        label: function() {
-            if(this.pubvar){
-                var pubvar = JSON.parse(this.pubvar);
-                if(this.topic) return this.topic + " : " + pubvar.type;
-                else return pubvar.name + " : " + pubvar.type;
-            }
-            else return "Foxtrot";
-        },
-        oneditprepare: function() {
+  function load_vars(node, vars) {
+    // clear list
+    $("#node-input-pubvar")
+      .empty()
+      .append(
+        $("<option></option>")
+          .attr("value", "")
+          .attr("hidden", "hidden")
+          .text("No variable")
+      );
 
-            var node = this;
+    if ($.isArray(vars) && vars.length > 0) {
+      $("#node-input-pubvar")
+        .empty()
+        .append(
+          $("<option></option>")
+            .attr("value", "")
+            .attr("hidden", "hidden")
+            .text("Select variable...")
+        );
 
-            $('#node-input-plccoms').on('change', function(){                
-                $('#node-input-pubvar').empty().append($('<option></option>')
-                                                    .attr('value', '')
-                                                    .attr('hidden', 'hidden')
-                                                    .text('Select variable...'));
+      $.each(vars, function (index, val) {
+        $("#node-input-pubvar").append(
+          $("<option></option>")
+            .attr("value", JSON.stringify(val))
+            .text(val.name + " : " + val.type)
+        );
+      });
 
-                var plcComSConfigNode = RED.nodes.node(this.value);
-                if(plcComSConfigNode){
-                    $('#node-input-pubvar').prop('disabled', false);
-                    $('#node-config-listvars-button').removeAttr('disabled');
-                }
-                else{
-                    $('#node-input-pubvar').prop('disabled', true);    
-                    $('#node-config-listvars-button').attr('disabled', 'disabled');
-                    $('#node-input-delta').prop('disabled', true);  
-                }
+      $("#node-input-pubvar").val(node.pubvar);
+    }
+  }
 
-            });
+  function get_label(node) {
+    if (node.pubvar) {
+      var parsed_var = JSON.parse(node.pubvar);
+      if (node.topic) {
+        return node.topic + " : " + parsed_var.type;
+      } else {
+        return parsed_var.name + " : " + parsed_var.type;
+      }
+    } else {
+      return "Foxtrot";
+    }
+  }
 
-            $('#node-config-listvars-button').click(function(){
-                $('#node-input-pubvar').empty().append($('<option></option>')
-                                                    .attr('value', '')
-                                                    .attr('hidden', 'hidden')
-                                                    .text('Select variable...')); 
-   
-                var plcComSConfigNode = RED.nodes.node($('#node-input-plccoms').val());
-                if(plcComSConfigNode){
-                    $.getJSON('pubvarlist', {host : plcComSConfigNode.host, port : plcComSConfigNode.port, termination : plcComSConfigNode.termination}, function(vars) {
-                        if(!$.isArray(vars) ||  !vars.length) {
-                            $('#node-input-pubvar').empty().append($('<option></option>')
-                                                    .attr('value', '')
-                                                    .attr('hidden', 'hidden')
-                                                    .text('No variable'));        
-                        }
-                        else{
-                            $.each(vars, function(index, val) {
-                                $('#node-input-pubvar').append($('<option></option>')
-                                                        .attr('value', JSON.stringify(val))
-                                                        .text(val.name + " : " + val.type));            
-                            });
-                            $('#node-input-pubvar').val(node.pubvar);
-                        }
-                    });
-                }
-                else RED.log.debug('PlcComS not specified')
-            });
+  var listedPlcComS;
+  function reload_list(node) {
+    var plcComSConfigNode = RED.nodes.node($("#node-input-plccoms").val());
+    if (plcComSConfigNode) {
+      if (plcComSConfigNode != listedPlcComS) {
+        $.getJSON(
+          "pubvarlist",
+          {
+            host: plcComSConfigNode.host,
+            port: plcComSConfigNode.port,
+            termination: plcComSConfigNode.termination,
+          },
+          (vars) => load_vars(node, vars)
+        );
+      }
+    } else {
+      $("#node-input-pubvar")
+        .empty()
+        .append(
+          $("<option></option>")
+            .attr("value", "")
+            .attr("hidden", "hidden")
+            .text("Select variable...")
+        );
+    }
+    listedPlcComS = plcComSConfigNode;
+  }
 
-            $('#node-config-listvars-button').click();
+  function prepare_edit(node) {
+    $("#node-input-plccoms").on("change", function (data) {
+      var plcComSConfigNode = RED.nodes.node(this.value);
+      if (plcComSConfigNode) {
+        $("#node-input-pubvar").prop("disabled", false);
+        $("#node-config-listvars-button").removeAttr("style");
+        if ($("#node-input-delta")) {
+          $("#node-input-delta").prop("disabled", false);
         }
-    });
-</script>
-
-<script type="text/javascript">
-    RED.nodes.registerType('foxtrot-output',{
-        category: 'tecomat',
-        color: '#a6bbcf',
-        defaults:{
-            plccoms: {value:"", type:"plccoms", required:true},
-            pubvar: {value:"", required:true}
-        },
-        inputs:1,
-        outputs:0,
-        icon: "foxtrot-icon.png",
-        label: function() {
-            if(this.pubvar){
-                var pubvar = JSON.parse(this.pubvar);
-                return pubvar.name + " : " + pubvar.type;
-            }
-            else return "Foxtrot";
-        },
-        oneditprepare: function() {
-
-            var node = this;
-
-            $('#node-input-plccoms').on('change', function(){                
-                $('#node-input-pubvar').empty().append($('<option></option>')
-                                                    .attr('value', '')
-                                                    .attr('hidden', 'hidden')
-                                                    .text('Select variable...'));
-
-                var plcComSConfigNode = RED.nodes.node(this.value);
-                if(plcComSConfigNode){
-                    $('#node-input-pubvar').prop('disabled', false);
-                    $('#node-config-listvars-button').removeAttr('disabled');
-                }
-                else{
-                    $('#node-input-pubvar').prop('disabled', true);    
-                    $('#node-config-listvars-button').attr('disabled', 'disabled');
-                }
-
-            });
-
-            $('#node-config-listvars-button').click(function(){
-                $('#node-input-pubvar').empty().append($('<option></option>')
-                                                    .attr('value', '')
-                                                    .attr('hidden', 'hidden')
-                                                    .text('Select variable...')); 
-   
-                var plcComSConfigNode = RED.nodes.node($('#node-input-plccoms').val());
-                if(plcComSConfigNode){
-                    $.getJSON('pubvarlist', {host : plcComSConfigNode.host, port : plcComSConfigNode.port, termination : plcComSConfigNode.termination}, function(vars) {
-                        if(!$.isArray(vars) || !vars.length) {
-                            $('#node-input-pubvar').empty().append($('<option></option>')
-                                                    .attr('value', '')
-                                                    .attr('hidden', 'hidden')
-                                                    .text('No variable'));        
-                        }
-                        else{
-                            console.log(vars);
-                            $.each(vars, function(index, val) {
-                                $('#node-input-pubvar').append($('<option></option>')
-                                                        .attr('value', JSON.stringify(val))
-                                                        .text(val.name + " : " + val.type));            
-                            });
-                            $('#node-input-pubvar').val(node.pubvar);
-                        }
-                    });
-                }
-                else RED.log.debug('PlcComS not specified')
-            });
-
-            $('#node-config-listvars-button').click();
+      } else {
+        $("#node-input-pubvar").prop("disabled", true);
+        $("#node-config-listvars-button").attr("style", "display:None");
+        if ($("#node-input-delta")) {
+          $("#node-input-delta").prop("disabled", true);
         }
+      }
+      reload_list(node);
     });
+
+    $("#node-config-listvars-button").click(function () {
+      listedPlcComS = null;
+      reload_list(node);
+    });
+
+    listedPlcComS = null;
+    reload_list(node);
+  }
+
+  RED.nodes.registerType("foxtrot-input", {
+    category: "tecomat",
+    color: "#a6bbcf",
+    defaults: {
+      plccoms: { value: "", type: "plccoms", required: true },
+      pubvar: { value: "", required: true },
+      delta: { value: "", required: false },
+      topic: { value: "", required: false },
+    },
+    inputs: 0,
+    outputs: 1,
+    icon: "foxtrot-icon.png",
+    label: function () {
+      return get_label(this);
+    },
+    oneditprepare: function () {
+      return prepare_edit(this);
+    },
+  });
+
+  RED.nodes.registerType("foxtrot-output", {
+    category: "tecomat",
+    color: "#a6bbcf",
+    defaults: {
+      plccoms: { value: "", type: "plccoms", required: true },
+      pubvar: { value: "", required: true },
+    },
+    inputs: 1,
+    outputs: 0,
+    icon: "foxtrot-icon.png",
+    label: function () {
+      return get_label(this);
+    },
+    oneditprepare: function () {
+      return prepare_edit(this);
+    },
+  });
 </script>
 
 <script type="text/x-red" data-template-name="plccoms">
-    <div class="form-row">
-        <label for="node-config-input-host"><i class="icon-bookmark"></i> Host</label>
-        <input type="text" id="node-config-input-host">
-    </div>
-    <div class="form-row">
-        <label for="node-config-input-port"><i class="icon-bookmark"></i> Port</label>
-        <input type="text" id="node-config-input-port">
-    </div>
-    <div class="form-row">
-        <label for="node-config-input-termination"><i class="fa fa-code"></i> Termination</label>
-        <input type="text" id="node-config-input-termination">
-    </div>
+  <div class="form-row">
+      <label for="node-config-input-host"><i class="icon-bookmark"></i> Host</label>
+      <input type="text" id="node-config-input-host">
+  </div>
+  <div class="form-row">
+      <label for="node-config-input-port"><i class="icon-bookmark"></i> Port</label>
+      <input type="text" id="node-config-input-port">
+  </div>
+  <div class="form-row">
+      <label for="node-config-input-termination"><i class="fa fa-code"></i> Termination</label>
+      <input type="text" id="node-config-input-termination">
+  </div>
 </script>
 
 <script type="text/x-red" data-template-name="foxtrot-input">
-    <div class="form-row">
-        <label for="node-input-plccoms"><i class="icon-globe"></i> PlcComS</label>
-        <input type="text" id="node-input-plccoms" placeholder="Select PlcComS server">
-    </div>
-    <div class="form-row">
-        <label for="node-input-pubvar"><i class="icon-tag"></i> Variables</label>
-        <select id="node-input-pubvar"></select>
-        <a id="node-config-listvars-button" class="btn"><i class="icon-refresh"></i></a>
-    </div>
-    <div class="form-row">
-        <label for="node-input-delta"><i class="icon-resize-full"></i> Delta</label>
-        <input type="text" id="node-input-delta">
-    </div>
-    <div class="form-row">
-        <label for="node-input-topic"><i class="fa fa-tasks"></i> Topic</label>
-        <input type="text" id="node-input-topic">
-    </div>
+  <div class="form-row">
+      <label for="node-input-plccoms"><i class="icon-globe"></i> PlcComS</label>
+      <input type="text" id="node-input-plccoms" placeholder="Select PlcComS server">
+  </div>
+  <div class="form-row">
+      <label for="node-input-pubvar"><i class="icon-tag"></i> Variables</label>
+      <select id="node-input-pubvar"></select>
+      <a id="node-config-listvars-button" class="red-ui-button"><i class="fa fa-refresh"></i></a>
+  </div>
+  <div class="form-row">
+      <label for="node-input-delta"><i class="icon-resize-full"></i> Delta</label>
+      <input type="text" id="node-input-delta">
+  </div>
+  <div class="form-row">
+      <label for="node-input-topic"><i class="fa fa-tasks"></i> Topic</label>
+      <input type="text" id="node-input-topic">
+  </div>
 </script>
 
 <script type="text/x-red" data-template-name="foxtrot-output">
-    <div class="form-row">
-        <label for="node-input-plccoms"><i class="icon-globe"></i> PlcComS</label>
-        <input type="text" id="node-input-plccoms" placeholder="Select PlcComS server">
-    </div>
-    <div class="form-row">
-        <label for="node-input-pubvar"><i class="icon-tag"></i> Variables</label>
-        <select id="node-input-pubvar"></select>
-        <a id="node-config-listvars-button" class="btn"><i class="icon-refresh"></i></a>
-    </div>
+  <div class="form-row">
+      <label for="node-input-plccoms"><i class="icon-globe"></i> PlcComS</label>
+      <input type="text" id="node-input-plccoms" placeholder="Select PlcComS server">
+  </div>
+  <div class="form-row">
+      <label for="node-input-pubvar"><i class="icon-tag"></i> Variables</label>
+      <select id="node-input-pubvar"></select>
+      <a id="node-config-listvars-button" class="red-ui-button"><i class="fa fa-refresh"></i></a>
+  </div>
 </script>
 
 <script type="text/x-red" data-help-name="foxtrot-input">
-    <p>Connects to a Tecomat Foxtrot PLC via PlcComS and reports value changes of selected variable</p>
-    <h3>Outputs</h3>
-    <dl class="message-properties">
-        <dt>payload <span class="property-type">string</span></dt>
-        <dd>a string value of selected varible</dd>
-        <dt>topic <span class="property-type">string</span></dt>
-        <dd>selected variable name or user defined string</dd>
-    </dl>
-    <h3>Details</h3>
-    <p>This node requires a connection to a PlcComS server to be configured. This is configured by clicking the pencil icon.</p>
-    <p>Several Foxtrot nodes can share the same PlcComS connection if required.</p>
-    <p>After specifying PlcComS connection the list of Variables can be loaded. 
-        The list can be whenever reloaded using the refresh button.</p>
-    <p>The output <code>msg</code> is sent in case of value change of selected variable. 
-        Delta parameter can specify the amount of change of variable value.</p>
+  <p>Connects to a Tecomat Foxtrot PLC via PlcComS and reports value changes of selected variable</p>
+  <h3>Outputs</h3>
+  <dl class="message-properties">
+      <dt>payload <span class="property-type">string</span></dt>
+      <dd>a string value of selected varible</dd>
+      <dt>topic <span class="property-type">string</span></dt>
+      <dd>selected variable name or user defined string</dd>
+  </dl>
+  <h3>Details</h3>
+  <p>This node requires a connection to a PlcComS server to be configured. This is configured by clicking the pencil icon.</p>
+  <p>Several Foxtrot nodes can share the same PlcComS connection if required.</p>
+  <p>After specifying PlcComS connection the list of Variables can be loaded.
+      The list can be whenever reloaded using the refresh button.</p>
+  <p>The output <code>msg</code> is sent in case of value change of selected variable.
+      Delta parameter can specify the amount of change of variable value.</p>
 </script>
 
 <script type="text/x-red" data-help-name="foxtrot-output">
-    <p>Connects to a Tecomat Foxtrot PLC via PlcComS and allows to set value of selected variable using input messages</p>
-    <h3>Inputs</h3>
-    <dl class="message-properties">
-        <dt>payload <span class="property-type">string</span></dt>
-        <dd>should contain a string representation of value to set to PLC variable</dd>
-    </dl>
-    <h3>Details</h3>
-    <p>This node requires a connection to a PlcComS server to be configured. This is configured by clicking the pencil icon.</p>
-    <p>Several Foxtrot nodes can share the same PlcComS connection if required.</p>
-    <p>After specifying PlcComS connection the list of Variables can be loaded. 
-            The list can be whenever reloaded using the refresh button.</p>
+  <p>Connects to a Tecomat Foxtrot PLC via PlcComS and allows to set value of selected variable using input messages</p>
+  <h3>Inputs</h3>
+  <dl class="message-properties">
+      <dt>payload <span class="property-type">string</span></dt>
+      <dd>should contain a string representation of value to set to PLC variable</dd>
+  </dl>
+  <h3>Details</h3>
+  <p>This node requires a connection to a PlcComS server to be configured. This is configured by clicking the pencil icon.</p>
+  <p>Several Foxtrot nodes can share the same PlcComS connection if required.</p>
+  <p>After specifying PlcComS connection the list of Variables can be loaded.
+          The list can be whenever reloaded using the refresh button.</p>
 </script>
 
 <script type="text/x-red" data-help-name="plccoms">
-    <p>Configuration for a connection to a PLCComS server.</p>
-    <p>This configuration will create a single connection to the server which can
-       then be reused by <code>foxtrot input</code> and <code>foxtrot ouput</code> nodes.</p>
+  <p>Configuration for a connection to a PLCComS server.</p>
+  <p>This configuration will create a single connection to the server which can
+     then be reused by <code>foxtrot input</code> and <code>foxtrot ouput</code> nodes.</p>
 </script>
