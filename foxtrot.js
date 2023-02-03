@@ -101,20 +101,22 @@ module.exports = function (RED) {
                     foxtrotNode.status({ fill: "green", shape: "ring", text: "active" });
                     if (foxtrotNode.type !== 'foxtrot-input') break;
 
-                    switch (foxtrotNode.pubvar.type) {
-                        case "BOOL":
-                            value = value.toLowerCase();
-                            value = (value === "true" || value === "1");
-                            break;
-                        default:
-                            if (foxtrotNode.pubvar.type.startsWith("STRING")) {
-                                if (value.charAt(0) === '"' && value.charAt(value.length - 1) === '"') {
-                                    value = value.slice(1, -1);
+                    if (foxtrotNode.format === 'native') {
+                        switch (foxtrotNode.pubvar.type) {
+                            case "BOOL":
+                                value = value.toLowerCase();
+                                value = (value === "true" || value === "1");
+                                break;
+                            default:
+                                if (foxtrotNode.pubvar.type.startsWith("STRING")) {
+                                    if (value.charAt(0) === '"' && value.charAt(value.length - 1) === '"') {
+                                        value = value.slice(1, -1);
+                                    }
+                                } else {
+                                    value = Number(value);
                                 }
-                            } else {
-                                value = Number(value);
-                            }
 
+                        }
                     }
                     foxtrotNode.send({ topic: foxtrotNode.topic, payload: value });
                     break;
@@ -235,6 +237,7 @@ module.exports = function (RED) {
         this.pubvar = config.pubvar ? JSON.parse(config.pubvar) : {};
         this.pubvar.delta = config.delta || "";
         this.topic = config.topic || this.pubvar.name || "";
+        this.format = config.format || "text";
 
         var node = this;
 
